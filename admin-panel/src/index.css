@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { @apply bg-bg text-ink font-sans antialiased text-sm; }
+  h1, h2 { @apply font-display; }
+}
+
+@layer components {
+  .btn { @apply inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-primary { @apply btn bg-teal text-white hover:bg-teal-dark; }
+  .btn-ghost   { @apply btn border border-border bg-white text-ink hover:bg-gray-50; }
+  .btn-danger  { @apply btn bg-red text-white hover:bg-red-700; }
+
+  .input { @apply w-full border border-border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:border-teal transition-colors placeholder:text-muted; }
+  .label { @apply block text-xs font-medium text-ink mb-1; }
+
+  .card  { @apply bg-white border border-border rounded p-5; }
+
+  .th { @apply text-left text-xs font-semibold uppercase tracking-wider text-muted px-4 py-3 border-b border-border; }
+  .td { @apply px-4 py-3 border-b border-border; }
+
+  .badge-pending  { @apply text-xs font-medium px-2 py-0.5 rounded bg-amber-light text-amber; }
+  .badge-approved { @apply text-xs font-medium px-2 py-0.5 rounded bg-teal-light text-teal; }
+  .badge-rejected { @apply text-xs font-medium px-2 py-0.5 rounded bg-red-light text-red; }
+  .badge-active   { @apply text-xs font-medium px-2 py-0.5 rounded bg-teal-light text-teal; }
+  .badge-disabled { @apply text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-muted; }
+
+  .page-title { @apply font-display text-2xl font-semibold text-ink mb-1; }
+  .page-sub   { @apply text-muted text-sm mb-6; }
+
+  .stat-card { @apply card flex flex-col gap-1; }
+  .stat-value { @apply font-display text-3xl font-semibold text-ink; }
+  .stat-label { @apply text-xs text-muted uppercase tracking-wider; }
+}

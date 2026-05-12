@@ -1,0 +1,17 @@
+{
+  "name": "voice-faq-bot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:bot": "npm --prefix teams-bot run dev",
+    "dev:panel": "npm --prefix admin-panel run dev",
+    "dev:all": "concurrently --names \"backend,bot,panel\" --prefix-colors \"cyan,yellow,magenta\" \"npm run dev:backend\" \"npm run dev:bot\" \"npm run dev:panel\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "axios": "^1.16.0"
+  }
+}

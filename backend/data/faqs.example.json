@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "last_updated": "2026-05-12T10:30:00Z",
+  "questions": [
+    {
+      "id": "q_001",
+      "question": "What are the office hours?",
+      "alternates": ["when are you open", "office timings", "working hours"],
+      "answer": "Monday to Saturday, 9 AM to 9 PM.",
+      "category": "General",
+      "active": true,
+      "created_by": "admin@example.com",
+      "created_at": "2026-05-01T08:00:00Z",
+      "updated_by": "admin@example.com",
+      "updated_at": "2026-05-12T10:30:00Z"
+    }
+  ]
+}

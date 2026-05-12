@@ -1,0 +1,12 @@
+{
+  "admins": [
+    {
+      "teams_user_id": "29:demo-admin-id",
+      "email": "admin@example.com",
+      "name": "Demo Admin",
+      "web_password_hash": "",
+      "notifications_enabled": true,
+      "active": true
+    }
+  ]
+}

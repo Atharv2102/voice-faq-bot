@@ -1,0 +1,22 @@
+{
+  "name": "voice-faq-bot-teams",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "package-manifest": "node scripts/packageManifest.js"
+  },
+  "dependencies": {
+    "@microsoft/teams.apps": "*",
+    "@microsoft/teams.api": "*",
+    "@microsoft/teams.dev": "*",
+    "archiver": "^7.0.1",
+    "axios": "^1.6.7",
+    "openai": "^4.28.0"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.1",
+    "nodemon": "^3.0.3"
+  }
+}

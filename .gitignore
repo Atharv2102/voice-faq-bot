@@ -1,0 +1,11 @@
+node_modules/
+.env
+dist/
+*.zip
+.DS_Store
+
+# Data files — commit questions + admins, exclude logs
+backend/data/query-log.xlsx
+backend/data/audit-log.xlsx
+backend/data/conversation-refs.json
+# Keep: backend/data/faqs.json, admins.json, suggestions.json

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "{{MICROSOFT_APP_ID}}",
+  "packageName": "com.example.faqbot",
+  "developer": {
+    "name": "Your Company",
+    "websiteUrl": "https://example.com",
+    "privacyUrl": "https://example.com/privacy",
+    "termsOfUseUrl": "https://example.com/terms"
+  },
+  "icons": { "color": "icon-color.png", "outline": "icon-outline.png" },
+  "name": { "short": "FAQ Bot", "full": "Voice FAQ Assistant" },
+  "description": {
+    "short": "Ask questions and get instant answers",
+    "full": "A voice-first FAQ assistant for Teams. Ask questions by text or voice. Admins manage FAQs via voice commands. Users can suggest changes."
+  },
+  "accentColor": "#0F6E56",
+  "bots": [{
+    "botId": "{{MICROSOFT_APP_ID}}",
+    "scopes": ["personal", "team", "groupchat"],
+    "supportsFiles": false,
+    "isNotificationOnly": false,
+    "commandLists": [{
+      "scopes": ["personal", "team", "groupchat"],
+      "commands": [
+        { "title": "help", "description": "Show available commands" },
+        { "title": "list questions", "description": "List all FAQs (admin)" },
+        { "title": "my suggestions", "description": "See your submitted suggestions" }
+      ]
+    }]
+  }],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": []
+}
