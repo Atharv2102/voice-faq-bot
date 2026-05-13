@@ -6,6 +6,7 @@ import * as excelLogger from './excelLogger.js';
 import * as emailNotifier from './emailNotifier.js';
 import * as conversationStore from './conversationStore.js';
 import { parseIntent } from './intent.js';
+import { parseIntentNLP } from './nlpIntent.js';
 import { findBestMatch, findTopMatches } from './matcher.js';
 import axios from 'axios';
 
@@ -176,7 +177,14 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
   // Store conversation reference
   if (conversationReference) conversationStore.store(teamsUserId, conversationReference);
 
-  const intent = parseIntent(text);
+  let intent = parseIntent(text);
+  // If the strict regex didn't match anything, ask the LLM to interpret.
+  // It returns { action: null } if OPENAI_API_KEY is missing or the text is just
+  // a question — in which case we fall through to FAQ lookup as before.
+  if (intent.action === null) {
+    const nlp = await parseIntentNLP(text);
+    if (nlp.action) intent = nlp;
+  }
   const admin = getAdmin(teamsUserId);
   const adminOnly = ['add','update','delete','disable','enable','list','count','audit_recent','audit_by_actor','audit_by_time','audit_by_topic','audit_by_faq','revert','suggestions_pending','suggestions_by_submitter','suggestion_approve','suggestion_reject'];
 
@@ -202,32 +210,65 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
   if (intent.action === 'help') {
     const isAdm = !!admin;
     const lines = [
-      '**FAQ Bot commands:**',
+      '👋 **Hi! I\'m the FAQ Bot.** Here\'s what I can do:',
       '',
-      '**Ask a question** — just type or speak it.',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '🔎 **Ask me anything**',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      'Just type or say your question — no special format needed.',
+      '   _Examples:_',
+      '   • `what are the office hours?`',
+      '   • `how do I claim travel expenses`',
+      '   • `wifi password`',
       '',
-      '**Suggest changes (anyone):**',
-      '• suggest a change to <topic>: <new answer>',
-      '• suggest adding <question> with answer <answer>',
-      '• report wrong answer for <topic>',
-      '• my suggestions',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '✏️ **Suggest a fix or addition** _(anyone)_',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '**Fix an existing answer** — use a colon (`:`) before the new value:',
+      '   `suggest a change to office hours: 10am to 6pm`',
+      '   `suggest update for wifi password: guest2026`',
+      '',
+      '**Add a brand new FAQ:**',
+      '   `suggest adding what is the dress code with answer business casual`',
+      '   `suggest new question parking hours: 8am to 9pm`',
+      '',
+      '**Report a wrong answer:**',
+      '   `report wrong answer for wifi password`',
+      '   `the answer for office hours is outdated`',
+      '',
+      '**See what you\'ve submitted:**   `my suggestions`',
     ];
     if (isAdm) lines.push(
-      '', '**Manage FAQs (admin):**',
-      '• add question <Q> answer <A>',
-      '• update answer for <Q> to <A>',
-      '• delete/disable/enable question about <Q>',
-      '• list questions [about <topic>]',
-      '• how many questions',
-      '', '**Suggestions (admin):**',
-      '• show pending suggestions',
-      '• approve/reject suggestion S-XXX',
-      '', '**Audit (admin):**',
-      '• show recent changes',
-      '• show changes today / this week',
-      '• show changes by <name>',
-      '• who edited <topic>',
-      '• revert last change',
+      '',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '🛠️  **Manage FAQs** _(admin only)_',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '   `add question <Q> answer <A>`',
+      '   `update answer for <Q> to <new answer>`',
+      '   `delete question about <topic>`',
+      '   `disable question about <topic>` / `enable question about <topic>`',
+      '   `list questions` / `list questions about <topic>`',
+      '   `how many questions`',
+      '',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '📥 **Review suggestions** _(admin only)_',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '   `show pending suggestions`',
+      '   `approve suggestion S-001`   /   `reject suggestion S-001`',
+      '',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '📜 **Audit history** _(admin only)_',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '   `show recent changes`',
+      '   `show changes today` / `show changes this week`',
+      '   `show changes by <name>`',
+      '   `who edited <topic>`',
+      '   `revert last change`',
+    );
+    lines.push(
+      '',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '💡 **Tip** — I always ask `yes` / `no` before saving anything.',
     );
     return { type: 'result', formatted_message: lines.join('\n') };
   }
@@ -336,7 +377,7 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
     const matches = findTopMatches(faqs, intent.target, 3);
     if (!matches.length) return { type: 'not_found', message: `I couldn't find a FAQ matching "${intent.target}". Try "suggest adding <question> with answer <answer>".` };
     if (matches.length > 1 && matches[0].score < 0.85) {
-      pending.set(teamsUserId, 'suggest_pick_target', { matches, intent, actor, userEmail, userName });
+      pending.set(teamsUserId, 'suggest_pick_target', { candidates: matches, intent, actor, userEmail, userName });
       return {
         type: 'needs_confirmation',
         confirmation_prompt: `I found multiple FAQs matching "${intent.target}":\n${candidatesList(matches)}\n\nWhich one? Reply with 1, 2, or 3.`,
@@ -365,7 +406,7 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
     if (!matches.length) return { type: 'not_found', message: `I couldn't find a FAQ matching "${intent.target}".` };
     const faq = matches.length === 1 || matches[0].score >= 0.85 ? matches[0].faq : null;
     if (!faq) {
-      pending.set(teamsUserId, 'suggest_pick_target', { matches, intent: { ...intent, action: 'suggest_report' }, actor, userEmail, userName });
+      pending.set(teamsUserId, 'suggest_pick_target', { candidates: matches, intent: { ...intent, action: 'suggest_report' }, actor, userEmail, userName });
       return {
         type: 'needs_confirmation',
         confirmation_prompt: `I found multiple matches:\n${candidatesList(matches)}\n\nWhich FAQ has the wrong answer? Reply with 1, 2, or 3.`,

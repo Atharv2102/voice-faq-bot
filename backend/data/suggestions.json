@@ -1,5 +1,5 @@
 {
-  "next_id": 3,
+  "next_id": 5,
   "suggestions": [
     {
       "id": "S-001",
@@ -42,6 +42,48 @@
       "reviewed_at": "2026-05-12T10:06:57.295Z",
       "review_reason": null,
       "applied": false
+    },
+    {
+      "id": "S-003",
+      "type": "update",
+      "submitted_by": {
+        "teams_user_id": "devtools",
+        "email": "",
+        "name": "devtools",
+        "conversation_reference": null
+      },
+      "target_faq_id": "q_001",
+      "target_question_snippet": "What are the office hours?",
+      "current_answer": "Monday to saturday",
+      "proposed_question": null,
+      "proposed_answer": "Monday to friday",
+      "status": "approved",
+      "created_at": "2026-05-13T06:17:47.106Z",
+      "reviewed_by": "atharv.jain@inmobi.com",
+      "reviewed_at": "2026-05-13T06:17:56.350Z",
+      "review_reason": null,
+      "applied": true
+    },
+    {
+      "id": "S-004",
+      "type": "update",
+      "submitted_by": {
+        "teams_user_id": "devtools",
+        "email": "",
+        "name": "devtools",
+        "conversation_reference": null
+      },
+      "target_faq_id": "q_001",
+      "target_question_snippet": "What are the office hours?",
+      "current_answer": "Monday to friday",
+      "proposed_question": null,
+      "proposed_answer": "Monday to sunday",
+      "status": "approved",
+      "created_at": "2026-05-13T06:41:22.339Z",
+      "reviewed_by": "atharv.jain@inmobi.com",
+      "reviewed_at": "2026-05-13T06:41:38.564Z",
+      "review_reason": null,
+      "applied": true
     }
   ]
 }

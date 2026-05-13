@@ -1,0 +1,130 @@
+digraph VoiceFAQBot {
+  rankdir=TB;
+  bgcolor="#fafafa";
+  node [fontname="Helvetica", fontsize=11, style="filled,rounded", shape=box, margin="0.2,0.12"];
+  edge [fontname="Helvetica", fontsize=9, color="#555555"];
+
+  // ─── Clients ───
+  subgraph cluster_clients {
+    label="Clients";
+    style="rounded,filled";
+    fillcolor="#eef5ff";
+    color="#88aacc";
+    fontname="Helvetica-Bold";
+
+    teams      [label="Microsoft Teams\n(desktop / mobile)", fillcolor="#4b53bc", fontcolor=white];
+    browser    [label="Admin browser", fillcolor="#4b53bc", fontcolor=white];
+  }
+
+  // ─── Microsoft ─── (Azure Bot)
+  azureBot [label="Azure Bot Service\n(single-tenant)\nCLIENT_ID / SECRET / TENANT_ID",
+            fillcolor="#0078d4", fontcolor=white, shape=box];
+
+  // ─── Render: Teams Bot ───
+  subgraph cluster_bot {
+    label="teams-bot   (Render — Node.js + Teams AI v2)";
+    style="rounded,filled";
+    fillcolor="#f7f0ff";
+    color="#a075cc";
+    fontname="Helvetica-Bold";
+
+    botMessages  [label="POST /api/messages\napp.on('message')\nhandleMessage()", fillcolor="#ffffff"];
+    botProactive [label="POST /api/proactive\n(secret-protected)", fillcolor="#ffffff"];
+    botHealth    [label="GET /health", fillcolor="#ffffff", fontsize=9];
+  }
+
+  whisper [label="OpenAI Whisper\n(audio → text)", fillcolor="#10a37f", fontcolor=white];
+
+  // ─── Render: Backend ───
+  subgraph cluster_backend {
+    label="backend   (Render — Express + JSON store)";
+    style="rounded,filled";
+    fillcolor="#fff6e8";
+    color="#cc9a55";
+    fontname="Helvetica-Bold";
+
+    subgraph cluster_routes {
+      label="Routes";
+      style="rounded,filled";
+      fillcolor="#ffffff";
+      color="#dddddd";
+
+      apiQuery   [label="/api/query\n/api/admin-command\n/api/admin-confirm\n/api/suggestions", fillcolor="#fff9ee"];
+      apiAuth    [label="/api/auth/login\n/api/questions\n/api/audit-log\n/api/query-log\n/api/lock/:id", fillcolor="#fff9ee"];
+      apiInt     [label="/api/bot/notify\n/api/conv-ref/:id\n(internal)", fillcolor="#fff9ee"];
+    }
+
+    subgraph cluster_services {
+      label="Services";
+      style="rounded,filled";
+      fillcolor="#ffffff";
+      color="#dddddd";
+
+      svcIntent  [label="intent.js\n(regex parser)", fillcolor="#fffaf0"];
+      svcCmd     [label="commandHandler.js\n(dispatcher)", fillcolor="#fffaf0"];
+      svcMatch   [label="matcher.js\n(Fuse.js fuzzy)", fillcolor="#fffaf0"];
+      svcPending [label="pendingActions.js\n(confirm flow)", fillcolor="#fffaf0"];
+      svcLock    [label="lockManager.js\n(edit locks)", fillcolor="#fffaf0"];
+      svcEmail   [label="emailNotifier.js\n(Nodemailer)", fillcolor="#fffaf0"];
+      svcStore   [label="fileStore.js\n(JSON mutex)", fillcolor="#fffaf0"];
+      svcExcel   [label="excelLogger.js\n(xlsx writes)", fillcolor="#fffaf0"];
+    }
+
+    subgraph cluster_data {
+      label="backend/data (persistent disk)";
+      style="rounded,filled";
+      fillcolor="#fff3d6";
+      color="#cc9a55";
+
+      dataFaqs    [label="faqs.json", fillcolor="#ffffff", fontsize=10];
+      dataAdmins  [label="admins.json", fillcolor="#ffffff", fontsize=10];
+      dataSugg    [label="suggestions.json", fillcolor="#ffffff", fontsize=10];
+      dataConv    [label="conversation-refs.json", fillcolor="#ffffff", fontsize=10];
+      dataAudit   [label="audit-log.xlsx", fillcolor="#ffffff", fontsize=10];
+      dataQlog    [label="query-log.xlsx", fillcolor="#ffffff", fontsize=10];
+    }
+  }
+
+  // ─── Render: Admin Panel ───
+  adminPanel [label="admin-panel\n(Render Static — React + Vite)\n\n/dashboard  /questions\n/suggestions /import\n/audit  /queries",
+              fillcolor="#e6f7ee", color="#3a9d6a", shape=box];
+
+  // ─── External ───
+  smtp [label="SMTP\n(Gmail / O365)", fillcolor="#dddddd"];
+
+  // ─── Edges ───
+  teams      -> azureBot       [label="HTTPS"];
+  azureBot   -> botMessages    [label="/api/messages"];
+
+  botMessages -> whisper        [label="audio", style=dashed];
+  whisper     -> botMessages    [label="text",  style=dashed];
+
+  botMessages -> apiQuery       [label="HTTP\n/api/query etc."];
+  botProactive -> apiInt        [label="GET conv-ref"];
+  apiInt      -> botProactive   [label="POST notify", style=dashed];
+
+  botProactive -> azureBot      [label="Bot Connector\nREST API"];
+  azureBot    -> teams          [label="proactive\nreply",  style=dashed];
+
+  // backend internals
+  apiQuery    -> svcCmd;
+  apiAuth     -> svcLock;
+  svcCmd      -> svcIntent;
+  svcCmd      -> svcMatch;
+  svcCmd      -> svcPending;
+  svcCmd      -> svcStore;
+  svcCmd      -> svcExcel;
+  svcCmd      -> svcEmail;
+  svcEmail    -> smtp           [style=dashed];
+
+  svcStore    -> dataFaqs;
+  svcStore    -> dataAdmins;
+  svcStore    -> dataSugg;
+  svcStore    -> dataConv;
+  svcExcel    -> dataAudit;
+  svcExcel    -> dataQlog;
+
+  // admin panel
+  browser     -> adminPanel     [label="HTTPS"];
+  adminPanel  -> apiAuth        [label="HTTPS + JWT"];
+}

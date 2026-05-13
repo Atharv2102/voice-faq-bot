@@ -48,19 +48,31 @@ export function parseIntent(text) {
   if (m) return { action: 'revert' };
 
   // --- User suggestions ---
-  m = t.match(/^suggest a change to (.+?):\s*(.+)$/i);
+  // "suggest a change to <topic>: <new answer>"   (canonical, colon-separated)
+  // "suggest change to <topic>: <new answer>"
+  // "suggest update for <topic> to <new answer>"
+  // "change <topic> to <new answer>"             (only if no admin action matched above)
+  // "update <topic>: <new answer>"               (informal)
+  m = t.match(/^suggest (?:a )?(?:change|update|edit) (?:to|for) (.+?)\s*[:\-]\s*(.+)$/i);
   if (m) return { action: 'suggest_update', target: m[1].trim(), newAnswer: m[2].trim() };
 
-  m = t.match(/^suggest adding (.+?) with answer (.+)$/i);
+  m = t.match(/^suggest (?:a )?(?:change|update|edit) (?:to|for) (.+?)\s+to\s+(.+)$/i);
+  if (m) return { action: 'suggest_update', target: m[1].trim(), newAnswer: m[2].trim() };
+
+  // "suggest adding <Q> with answer <A>", also "suggest a new question <Q>: <A>"
+  m = t.match(/^suggest (?:adding|add)\s+(.+?)\s+with answer\s+(.+)$/i);
   if (m) return { action: 'suggest_add', question: m[1].trim(), answer: m[2].trim() };
 
-  m = t.match(/^report wrong answer for (.+)$/i);
+  m = t.match(/^suggest (?:a )?new (?:question|faq)\s+(.+?)\s*[:\-]\s*(.+)$/i);
+  if (m) return { action: 'suggest_add', question: m[1].trim(), answer: m[2].trim() };
+
+  m = t.match(/^(?:report|flag) (?:wrong|incorrect|bad) (?:answer )?(?:for|on|about) (.+)$/i);
   if (m) return { action: 'suggest_report', target: m[1].trim() };
 
-  m = t.match(/^the answer (?:about |for )(.+?) is outdated$/i);
+  m = t.match(/^(?:the )?answer (?:about |for |to )?(.+?) is (?:outdated|wrong|incorrect|stale)$/i);
   if (m) return { action: 'suggest_report', target: m[1].trim() };
 
-  m = t.match(/^my suggestions$/i);
+  m = t.match(/^(?:my|show my) suggestions$/i);
   if (m) return { action: 'my_suggestions' };
 
   // --- Suggestion management (admin) ---

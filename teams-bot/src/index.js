@@ -27,6 +27,26 @@ app.on('message', async (context) => {
   }
 });
 
+// ── Pending transcription state (per user, in-memory) ───────────────────────
+// When a voice message is transcribed, we don't immediately route it to the
+// backend — we first show the user what we heard and ask for confirmation.
+// Entry expires after 2 minutes so stale state can't leak.
+const pendingTranscriptions = new Map(); // teamsUserId → { text, expiresAt }
+const TRANSCRIPTION_TTL_MS = 2 * 60 * 1000;
+
+const YES_RE = /^\s*(yes|y|confirm|confirmed|ok|okay|yeah|yep|sure|send it|go ahead)\s*[.!]?$/i;
+const NO_RE  = /^\s*(no|n|cancel|nevermind|never mind|nope|nah|discard|delete)\s*[.!]?$/i;
+
+function getPendingTranscription(userId) {
+  const entry = pendingTranscriptions.get(userId);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    pendingTranscriptions.delete(userId);
+    return null;
+  }
+  return entry.text;
+}
+
 // ── Message handling ─────────────────────────────────────────────────────────
 async function handleMessage(context) {
   const activity = context.activity;
@@ -37,36 +57,77 @@ async function handleMessage(context) {
 
   console.log(`\n>>> teamsUserId: ${teamsUserId}  name: ${userName}\n`);
 
-  let text = null;
-
   const audioAtt = (activity.attachments ?? []).find(a => AUDIO_TYPES.includes(a.contentType));
+
+  // ── Branch 1: incoming AUDIO → transcribe, ask user to confirm ─────────────
   if (audioAtt) {
     if (!process.env.OPENAI_API_KEY) {
       await context.send("I received your voice message but voice transcription isn't configured yet (OPENAI_API_KEY missing). Please type your message.");
       return;
     }
+    let transcript;
     try {
       const token = await getBotServiceToken();
       const { data } = await axios.get(audioAtt.contentUrl, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'arraybuffer',
       });
-      text = await transcribeAudio(Buffer.from(data), audioAtt.contentType);
-      console.log(`[STT] "${text}"`);
+      transcript = await transcribeAudio(Buffer.from(data), audioAtt.contentType);
+      console.log(`[STT] "${transcript}"`);
     } catch (err) {
       console.error('STT error:', err.message);
       await context.send("Sorry, I couldn't transcribe your voice message. Please try typing instead.");
       return;
     }
-  } else {
-    text = (activity.text ?? '').trim();
+
+    if (!transcript || !transcript.trim()) {
+      await context.send("I couldn't make out any words in that recording. Please try again, or type your message.");
+      return;
+    }
+
+    pendingTranscriptions.set(teamsUserId, {
+      text: transcript.trim(),
+      expiresAt: Date.now() + TRANSCRIPTION_TTL_MS,
+    });
+
+    await context.send(
+      `🎙️ I heard:\n\n> "${transcript.trim()}"\n\n` +
+      `Reply **yes** to send this, **no** to discard it, or type a correction to use that instead.`
+    );
+    return;
   }
 
+  // ── Branch 2: incoming TEXT ─────────────────────────────────────────────────
+  const text = (activity.text ?? '').trim();
   if (!text) {
     await context.send("I didn't receive any message. Please try again.");
     return;
   }
 
+  // If a transcription is pending, treat this text as the user's response to it.
+  const pending = getPendingTranscription(teamsUserId);
+  if (pending) {
+    if (YES_RE.test(text)) {
+      pendingTranscriptions.delete(teamsUserId);
+      await context.send(`✅ Got it — processing: "${pending}"`);
+      const reply = await route(pending, teamsUserId, userEmail, userName, conversationReference);
+      await context.send(reply);
+      return;
+    }
+    if (NO_RE.test(text)) {
+      pendingTranscriptions.delete(teamsUserId);
+      await context.send("👍 Discarded. Send another voice message or type your question.");
+      return;
+    }
+    // Any other text → user is correcting / overriding the transcription.
+    pendingTranscriptions.delete(teamsUserId);
+    await context.send(`✏️ Using your typed message instead: "${text}"`);
+    const reply = await route(text, teamsUserId, userEmail, userName, conversationReference);
+    await context.send(reply);
+    return;
+  }
+
+  // No transcription pending — route normally.
   const reply = await route(text, teamsUserId, userEmail, userName, conversationReference);
   await context.send(reply);
 }
