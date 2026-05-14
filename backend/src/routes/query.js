@@ -2,7 +2,7 @@ import { Router } from 'express';
 import * as fileStore from '../services/fileStore.js';
 import * as excelLogger from '../services/excelLogger.js';
 import * as conversationStore from '../services/conversationStore.js';
-import { findBestMatch } from '../services/matcher.js';
+import { findBestMatch, findTopMatches } from '../services/matcher.js';
 
 const router = Router();
 
@@ -25,10 +25,22 @@ router.post('/query', async (req, res) => {
   }).catch(console.error);
 
   if (!match) {
-    return res.json({ answered: false, message: "Sorry, I couldn't find an answer to that question. You can suggest a new FAQ by saying \"suggest adding <question> with answer <answer>\"." });
+    // Show the closest near-misses (below the confidence cutoff) so the user knows
+    // we *almost* matched something and can refine their question.
+    const near = findTopMatches(questions.filter(f => f.active), text, 3);
+    let msg = "Sorry, I couldn't find a confident answer to that question.";
+    if (near.length) {
+      const lines = near.map((r, i) => `  ${i + 1}. "${r.faq.question}"  _(${Math.round(r.score * 100)}% match)_`);
+      msg += `\n\nClosest matches in my knowledge base:\n${lines.join('\n')}\n\nIf one of those is what you meant, ask it that way. Otherwise you can suggest a new FAQ:\n\`suggest adding <question> with answer <answer>\``;
+    } else {
+      msg += `\n\nI couldn't find any related FAQs. You can suggest a new one:\n\`suggest adding <question> with answer <answer>\``;
+    }
+    return res.json({ answered: false, message: msg, near_matches: near.map(r => ({ id: r.faq.id, question: r.faq.question, score: r.score })) });
   }
 
-  return res.json({ answered: true, answer: match.faq.answer, question: match.faq.question, confidence: match.score });
+  const pct = Math.round(match.score * 100);
+  const answer = `${match.faq.answer}\n\n_(matched "${match.faq.question}" · ${pct}% confidence)_`;
+  return res.json({ answered: true, answer, question: match.faq.question, confidence: match.score });
 });
 
 export default router;
