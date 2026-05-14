@@ -2,7 +2,7 @@ import { Router } from 'express';
 import * as fileStore from '../services/fileStore.js';
 import * as excelLogger from '../services/excelLogger.js';
 import * as conversationStore from '../services/conversationStore.js';
-import { findBestMatch, findTopMatches } from '../services/matcher.js';
+import { findBestMatchSemantic, getNearMatches } from '../services/semanticMatcher.js';
 
 const router = Router();
 
@@ -13,7 +13,7 @@ router.post('/query', async (req, res) => {
   if (conversationReference && teamsUserId) conversationStore.store(teamsUserId, conversationReference);
 
   const { questions } = fileStore.read('faqs');
-  const match = findBestMatch(questions, text);
+  const match = await findBestMatchSemantic(questions, text);
 
   excelLogger.appendQueryLog({
     user_email: userEmail ?? '',
@@ -27,7 +27,7 @@ router.post('/query', async (req, res) => {
   if (!match) {
     // Show the closest near-misses (below the confidence cutoff) so the user knows
     // we *almost* matched something and can refine their question.
-    const near = findTopMatches(questions.filter(f => f.active), text, 3);
+    const near = getNearMatches(questions, text, 3);
     let msg = "Sorry, I couldn't find a confident answer to that question.";
     if (near.length) {
       const lines = near.map((r, i) => `  ${i + 1}. "${r.faq.question}"  _(${Math.round(r.score * 100)}% match)_`);
