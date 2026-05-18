@@ -4,12 +4,12 @@
   "version": "1.0.0",
   "id": "{{MICROSOFT_APP_ID}}",
   "packageName": "com.example.faqbot",
-  "developer": {
-    "name": "Your Company",
-    "websiteUrl": "https://example.com",
-    "privacyUrl": "https://example.com/privacy",
-    "termsOfUseUrl": "https://example.com/terms"
-  },
+ "developer": {
+  "name": "InMobi",
+  "websiteUrl": "https://www.inmobi.com",
+  "privacyUrl": "https://www.inmobi.com/privacy",
+  "termsOfUseUrl": "https://www.inmobi.com/terms"
+},
   "icons": { "color": "icon-color.png", "outline": "icon-outline.png" },
   "name": { "short": "FAQ Bot", "full": "Voice FAQ Assistant" },
   "description": {

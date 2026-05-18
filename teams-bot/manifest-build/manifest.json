@@ -1,0 +1,68 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "bab0323f-9c89-4457-9271-7ebfe580a2ff",
+  "packageName": "com.example.faqbot",
+  "developer": {
+    "name": "InMobi",
+    "websiteUrl": "https://www.inmobi.com",
+    "privacyUrl": "https://www.inmobi.com/privacy",
+    "termsOfUseUrl": "https://www.inmobi.com/terms"
+  },
+  "icons": {
+    "color": "icon-color.png",
+    "outline": "icon-outline.png"
+  },
+  "name": {
+    "short": "FAQ Bot",
+    "full": "Voice FAQ Assistant"
+  },
+  "description": {
+    "short": "Ask questions and get instant answers",
+    "full": "A voice-first FAQ assistant for Teams. Ask questions by text or voice. Admins manage FAQs via voice commands. Users can suggest changes."
+  },
+  "accentColor": "#0F6E56",
+  "bots": [
+    {
+      "botId": "bab0323f-9c89-4457-9271-7ebfe580a2ff",
+      "scopes": [
+        "personal",
+        "team",
+        "groupchat"
+      ],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": [
+            "personal",
+            "team",
+            "groupchat"
+          ],
+          "commands": [
+            {
+              "title": "help",
+              "description": "Show available commands"
+            },
+            {
+              "title": "list questions",
+              "description": "List all FAQs (admin)"
+            },
+            {
+              "title": "my suggestions",
+              "description": "See your submitted suggestions"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "voice-faq-bot-1.onrender.com"
+  ]
+}
