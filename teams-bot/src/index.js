@@ -55,7 +55,7 @@ async function handleMessage(context) {
   const userEmail = activity.from?.email ?? '';
   const conversationReference = context.ref;
 
-  console.log(`\n>>> teamsUserId: ${teamsUserId}  name: ${userName}\n`);
+  if (process.env.DEBUG_USER_ID) console.log(`>>> teamsUserId: ${teamsUserId}  name: ${userName}`);
 
   const audioAtt = (activity.attachments ?? []).find(a => AUDIO_TYPES.includes(a.contentType));
 
