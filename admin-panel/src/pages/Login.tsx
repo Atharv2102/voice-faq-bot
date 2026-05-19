@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
 export default function Login() {
@@ -39,6 +39,9 @@ export default function Login() {
           <button type="submit" className="btn-primary w-full justify-center mt-1" disabled={loading}>
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
+          <p className="text-sm text-muted text-center">
+            New here? <Link to="/register" className="text-link">Create an admin account</Link>
+          </p>
         </form>
       </div>
     </div>

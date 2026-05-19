@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
@@ -8,11 +9,13 @@ import Suggestions from './pages/Suggestions';
 import Import from './pages/Import';
 import Audit from './pages/Audit';
 import Queries from './pages/Queries';
+import Profile from './pages/Profile';
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard"   element={<Dashboard />} />
@@ -21,6 +24,7 @@ export default function App() {
         <Route path="import"      element={<Import />} />
         <Route path="audit"       element={<Audit />} />
         <Route path="queries"     element={<Queries />} />
+        <Route path="profile"     element={<Profile />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

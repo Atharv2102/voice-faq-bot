@@ -89,6 +89,11 @@ export function parseIntent(text) {
   m = t.match(/^reject suggestion (.+)$/i);
   if (m) return { action: 'suggestion_reject', id: normalizeSuggestionId(m[1]) };
 
+  // --- Account linking ---
+  // "link 123456" or "link account 123456" — connects this Teams user to a web admin account.
+  m = t.match(/^link(?:\s+account)?\s+(\d{4,8})$/i);
+  if (m) return { action: 'link_account', code: m[1] };
+
   // --- Meta ---
   m = t.match(/^help$/i);
   if (m) return { action: 'help' };

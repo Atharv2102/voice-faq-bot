@@ -9,6 +9,7 @@ const NAV = [
   { to: '/import',      label: 'Import' },
   { to: '/audit',       label: 'Audit Log' },
   { to: '/queries',     label: 'Query Log' },
+  { to: '/profile',     label: 'Profile' },
 ];
 
 export default function Layout() {

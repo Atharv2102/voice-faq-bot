@@ -195,6 +195,32 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
 
   if (intent.action === null) return { type: 'not_a_command' };
 
+  // --- Account linking (no admin status required) ---
+  if (intent.action === 'link_account') {
+    try {
+      const resp = await fetch(`http://localhost:${process.env.PORT || 3000}/api/auth/link-claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: intent.code,
+          teamsUserId,
+          secret: process.env.BOT_PROACTIVE_SECRET,
+        }),
+      });
+      if (resp.status === 404) {
+        return { type: 'error', message: '❌ That code is invalid or has expired. Generate a fresh one from the admin panel.' };
+      }
+      if (!resp.ok) {
+        return { type: 'error', message: `Couldn't link account (HTTP ${resp.status}).` };
+      }
+      const data = await resp.json();
+      return { type: 'executed', message: `✅ Linked to **${data.name}** (${data.email}). You can now use admin commands here. Try \`help\` to see them.` };
+    } catch (err) {
+      console.error('link_account error:', err);
+      return { type: 'error', message: 'Something went wrong linking your account. Please try again.' };
+    }
+  }
+
   // Admin-only gate
   if (adminOnly.includes(intent.action) && !admin) {
     return {
@@ -237,6 +263,13 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
       '   `the answer for office hours is outdated`',
       '',
       '**See what you\'ve submitted:**   `my suggestions`',
+      '',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '🔗 **Link a web admin account**',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      'If you have a web admin account on the FAQ Bot admin panel, generate a 6-digit code there and send:',
+      '   `link 123456`',
+      'This grants you admin powers in Teams too.',
     ];
     if (isAdm) lines.push(
       '',
