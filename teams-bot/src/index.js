@@ -54,17 +54,35 @@ async function handleMessage(context) {
   const userName = activity.from?.name ?? '';
   const conversationReference = context.ref;
 
-  // Look up the user's email from Teams (uses the bot service token, no extra
-  // Graph permission required). Falls back to whatever's on the activity if the
-  // call fails (e.g. when running in the local devtools where this API isn't
-  // wired up).
+  // Look up the user's email. Tries in order:
+  //   1. activity.from.email / .properties.email  (rare, but free if present)
+  //   2. SDK helper context.api.conversations.members.getById()
+  //   3. Direct Bot Framework REST call to {serviceUrl}/v3/conversations/{id}/members/{userId}
+  //      — uses the same client_credentials service token as the audio download
   let userEmail = activity.from?.email ?? activity.from?.properties?.email ?? '';
+
   if (!userEmail && context.api?.conversations?.members && activity.conversation?.id && activity.from?.id) {
     try {
       const member = await context.api.conversations.members.getById(activity.conversation.id, activity.from.id);
       userEmail = member?.email || member?.userPrincipalName || '';
     } catch (err) {
-      console.warn('[member-lookup] failed:', err.message);
+      console.warn('[member-lookup SDK] failed:', err.message);
+    }
+  }
+
+  if (!userEmail && activity.serviceUrl && activity.conversation?.id && activity.from?.id) {
+    try {
+      const token = await getBotServiceToken();
+      const serviceUrl = activity.serviceUrl.replace(/\/$/, '');
+      const url = `${serviceUrl}/v3/conversations/${encodeURIComponent(activity.conversation.id)}/members/${encodeURIComponent(activity.from.id)}`;
+      const { data } = await axios.get(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 5000,
+      });
+      userEmail = data?.email || data?.userPrincipalName || '';
+      if (process.env.DEBUG_USER_ID) console.log('[member-lookup REST]', { email: data?.email, upn: data?.userPrincipalName, name: data?.name });
+    } catch (err) {
+      console.warn('[member-lookup REST] failed:', err.response?.status, err.response?.data || err.message);
     }
   }
 
