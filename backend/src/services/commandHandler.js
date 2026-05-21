@@ -4,6 +4,7 @@ import * as pending from './pendingActions.js';
 import * as lockManager from './lockManager.js';
 import * as excelLogger from './excelLogger.js';
 import * as emailNotifier from './emailNotifier.js';
+import * as teamsNotifier from './teamsNotifier.js';
 import * as conversationStore from './conversationStore.js';
 import { parseIntent } from './intent.js';
 import { parseIntentNLP } from './nlpIntent.js';
@@ -751,6 +752,7 @@ async function saveSuggestion(suggestion, actor) {
     data.next_id++;
   });
   emailNotifier.sendSuggestionAlert(suggestion, admins).catch(console.error);
+  teamsNotifier.notifyAdminsOfSuggestion(suggestion, admins).catch(console.error);
   return { type: 'executed', message: `Suggestion submitted as **${suggestion.id}**. You'll be notified when an admin reviews it.` };
 }
 

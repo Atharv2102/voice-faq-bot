@@ -1,18 +1,114 @@
 import nodemailer from 'nodemailer';
 import jwt from 'jsonwebtoken';
+import axios from 'axios';
 
-const devMode = !process.env.SMTP_HOST;
+/**
+ * Three transport modes — auto-selected from env:
+ *
+ *   1. Microsoft Graph (service account) — preferred for M365 orgs.
+ *      Set: GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET,
+ *           GRAPH_SENDER_EMAIL (a mailbox the app can send-as).
+ *      Requires Mail.Send application permission on the App Registration
+ *      with admin consent granted.
+ *
+ *   2. SMTP — Nodemailer with username/password.
+ *      Set: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM.
+ *
+ *   3. Console — neither configured. Emails are logged to stdout.
+ *      Useful during dev or before InfoSec approves an email channel.
+ */
 
-function createTransport() {
-  if (devMode) return null;
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: false,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+const GRAPH_TENANT     = process.env.GRAPH_TENANT_ID;
+const GRAPH_CLIENT     = process.env.GRAPH_CLIENT_ID;
+const GRAPH_SECRET     = process.env.GRAPH_CLIENT_SECRET;
+const GRAPH_SENDER     = process.env.GRAPH_SENDER_EMAIL;
+const SMTP_HOST        = process.env.SMTP_HOST;
+
+const MODE = (GRAPH_TENANT && GRAPH_CLIENT && GRAPH_SECRET && GRAPH_SENDER) ? 'graph'
+           : SMTP_HOST ? 'smtp'
+           : 'console';
+
+console.log(`[emailNotifier] mode = ${MODE}${MODE === 'graph' ? ` (sender: ${GRAPH_SENDER})` : ''}`);
+
+// ── Graph token cache (~55 min) ──────────────────────────────────────────────
+let cachedToken = null;
+let tokenExpiresAt = 0;
+
+async function getGraphToken() {
+  if (cachedToken && Date.now() < tokenExpiresAt - 60_000) return cachedToken;
+  const { data } = await axios.post(
+    `https://login.microsoftonline.com/${GRAPH_TENANT}/oauth2/v2.0/token`,
+    new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: GRAPH_CLIENT,
+      client_secret: GRAPH_SECRET,
+      scope: 'https://graph.microsoft.com/.default',
+    }),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+  );
+  cachedToken = data.access_token;
+  tokenExpiresAt = Date.now() + (data.expires_in * 1000);
+  return cachedToken;
+}
+
+async function sendViaGraph(to, subject, html) {
+  const token = await getGraphToken();
+  await axios.post(
+    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(GRAPH_SENDER)}/sendMail`,
+    {
+      message: {
+        subject,
+        body: { contentType: 'HTML', content: html },
+        toRecipients: [{ emailAddress: { address: to } }],
+      },
+      saveToSentItems: 'true',
+    },
+    { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+  );
+}
+
+// ── SMTP transport (only built when needed) ──────────────────────────────────
+let smtpTransport = null;
+function getSmtp() {
+  if (!smtpTransport) {
+    smtpTransport = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+  }
+  return smtpTransport;
+}
+
+async function sendViaSmtp(to, subject, html) {
+  await getSmtp().sendMail({
+    from: process.env.SMTP_FROM || 'FAQ Bot <noreply@example.com>',
+    to, subject, html,
   });
 }
 
+function logToConsole(to, subject, html) {
+  console.log('\n📧 [EMAIL — console mode, not actually sent]');
+  console.log(`  To:       ${to}`);
+  console.log(`  Subject:  ${subject}`);
+  console.log(`  Body:     ${html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 240).trim()}...`);
+  console.log('');
+}
+
+// Single entrypoint
+async function send(to, subject, html) {
+  try {
+    if (MODE === 'graph') return await sendViaGraph(to, subject, html);
+    if (MODE === 'smtp')  return await sendViaSmtp(to, subject, html);
+    return logToConsole(to, subject, html);
+  } catch (err) {
+    console.error(`[emailNotifier] ${MODE} send to ${to} failed:`, err.response?.data?.error?.message || err.message);
+    // Never throw — email failures must not block the suggestion flow
+  }
+}
+
+// ── Tokens for one-click email actions (unchanged) ───────────────────────────
 function makeQuickToken(suggestionId, action, adminEmail) {
   return jwt.sign(
     { suggestionId, action, adminEmail, singleUse: true },
@@ -23,14 +119,13 @@ function makeQuickToken(suggestionId, action, adminEmail) {
 
 function quickLink(suggestionId, action, adminEmail) {
   const token = makeQuickToken(suggestionId, action, adminEmail);
-  const base = process.env.ADMIN_PANEL_URL || 'http://localhost:5173';
   return `${process.env.BOT_URL || 'http://localhost:3000'}/api/suggestions/quick/${token}`;
 }
 
 function suggestionEmailHtml(suggestion, adminEmail) {
   const panelUrl = `${process.env.ADMIN_PANEL_URL || 'http://localhost:5173'}/suggestions`;
   const approveLink = quickLink(suggestion.id, 'approve', adminEmail);
-  const rejectLink = quickLink(suggestion.id, 'reject', adminEmail);
+  const rejectLink  = quickLink(suggestion.id, 'reject',  adminEmail);
   const submitter = suggestion.submitted_by;
   return `
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1F1F1F">
@@ -50,66 +145,35 @@ function suggestionEmailHtml(suggestion, adminEmail) {
 </div>`;
 }
 
-async function send(to, subject, html) {
-  if (devMode) {
-    console.log('\n📧 [EMAIL — dev mode, not sent]');
-    console.log(`  To: ${to}`);
-    console.log(`  Subject: ${subject}`);
-    console.log(`  Body preview: ${html.replace(/<[^>]+>/g, ' ').slice(0, 200).trim()}...`);
-    console.log('');
-    return;
-  }
-  const transport = createTransport();
-  await transport.sendMail({
-    from: process.env.SMTP_FROM || 'FAQ Bot <noreply@example.com>',
-    to,
-    subject,
-    html,
-  });
-}
-
 export async function sendSuggestionAlert(suggestion, admins) {
   const targets = admins.filter(a => a.notifications_enabled && a.active && a.email);
   for (const admin of targets) {
-    try {
-      await send(
-        admin.email,
-        `New FAQ suggestion from ${suggestion.submitted_by.name ?? 'a user'} — ${suggestion.id}`,
-        suggestionEmailHtml(suggestion, admin.email)
-      );
-    } catch (err) {
-      console.error(`Email to ${admin.email} failed:`, err.message);
-      // don't throw — suggestion is already saved
-    }
+    await send(
+      admin.email,
+      `New FAQ suggestion from ${suggestion.submitted_by.name ?? 'a user'} — ${suggestion.id}`,
+      suggestionEmailHtml(suggestion, admin.email)
+    );
   }
 }
 
 export async function sendApprovalNotice(suggestion) {
   const email = suggestion.submitted_by?.email;
   if (!email) return;
-  try {
-    await send(email, `Your FAQ suggestion ${suggestion.id} was approved`,
-      `<p>Hi ${suggestion.submitted_by.name ?? 'there'},</p>
-       <p>Your suggestion (${suggestion.id}) was <strong style="color:#0F6E56">approved</strong> and the FAQ has been updated. Thank you!</p>`
-    );
-  } catch (err) {
-    console.error('Approval notice email failed:', err.message);
-  }
+  await send(email, `Your FAQ suggestion ${suggestion.id} was approved`,
+    `<p>Hi ${suggestion.submitted_by.name ?? 'there'},</p>
+     <p>Your suggestion (${suggestion.id}) was <strong style="color:#0F6E56">approved</strong> and the FAQ has been updated. Thank you!</p>`
+  );
 }
 
 export async function sendRejectionNotice(suggestion, reason) {
   const email = suggestion.submitted_by?.email;
   if (!email) return;
-  try {
-    await send(email, `Your FAQ suggestion ${suggestion.id} was not approved`,
-      `<p>Hi ${suggestion.submitted_by.name ?? 'there'},</p>
-       <p>Your suggestion (${suggestion.id}) was <strong style="color:#c0392b">rejected</strong>.</p>
-       ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
-       <p>You can submit a revised suggestion at any time.</p>`
-    );
-  } catch (err) {
-    console.error('Rejection notice email failed:', err.message);
-  }
+  await send(email, `Your FAQ suggestion ${suggestion.id} was not approved`,
+    `<p>Hi ${suggestion.submitted_by.name ?? 'there'},</p>
+     <p>Your suggestion (${suggestion.id}) was <strong style="color:#c0392b">rejected</strong>.</p>
+     ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
+     <p>You can submit a revised suggestion at any time.</p>`
+  );
 }
 
 export { makeQuickToken };

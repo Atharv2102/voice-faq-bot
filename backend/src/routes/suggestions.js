@@ -2,6 +2,7 @@ import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import * as fileStore from '../services/fileStore.js';
 import * as emailNotifier from '../services/emailNotifier.js';
+import * as teamsNotifier from '../services/teamsNotifier.js';
 import { requireJwt } from '../middleware/auth.js';
 import { approveSuggestion, rejectSuggestion } from '../services/commandHandler.js';
 
@@ -30,6 +31,7 @@ router.post('/suggestions', async (req, res) => {
       data.next_id++;
     });
     emailNotifier.sendSuggestionAlert(suggestion, admins).catch(console.error);
+    teamsNotifier.notifyAdminsOfSuggestion(suggestion, admins).catch(console.error);
     return res.json({ ok: true, id: suggestion.id });
   } catch (err) {
     console.error('POST /suggestions error:', err);
