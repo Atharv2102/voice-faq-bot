@@ -44,8 +44,20 @@ export function parseIntent(text) {
   m = t.match(/^who edited (.+)$/i);
   if (m) return { action: 'audit_by_faq', target: m[1].trim() };
 
-  m = t.match(/^revert last change$/i);
+  m = t.match(/^revert (?:the )?(?:last|most recent) change$/i);
   if (m) return { action: 'revert' };
+
+  m = t.match(/^revert (?:the )?(?:answer|change|update) (?:for|to|about) (.+)$/i);
+  if (m) return { action: 'revert_faq', target: m[1].trim() };
+
+  m = t.match(/^(?:show|list|fetch) (?:recent )?(?:query log|queries|user queries|asked questions)$/i);
+  if (m) return { action: 'show_query_log' };
+
+  m = t.match(/^(?:show|list|fetch) (?:recent )?(?:unanswered|missed) (?:queries|questions)$/i);
+  if (m) return { action: 'show_unanswered' };
+
+  m = t.match(/^(?:show|list|fetch) (?:recent )?(?:update )?requests$/i);
+  if (m) return { action: 'suggestions_pending' };
 
   // --- User suggestions ---
   // "suggest a change to <topic>: <new answer>"   (canonical, colon-separated)

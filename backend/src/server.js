@@ -16,6 +16,7 @@ import auditLogRouter from './routes/auditLog.js';
 import queryLogRouter from './routes/queryLog.js';
 import botNotifyRouter from './routes/botNotify.js';
 import convRefRouter from './routes/convRef.js';
+import usersRouter from './routes/users.js';
 
 const app = express();
 app.use(cors({ origin: process.env.ADMIN_PANEL_URL || true }));
@@ -38,6 +39,7 @@ app.use('/api', lockRouter);
 app.use('/api', bulkImportRouter);
 app.use('/api', auditLogRouter);
 app.use('/api', queryLogRouter);
+app.use('/api', usersRouter);
 
 // Internal (secret-protected)
 app.use('/api', botNotifyRouter);

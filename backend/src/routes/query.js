@@ -3,6 +3,7 @@ import * as fileStore from '../services/fileStore.js';
 import * as excelLogger from '../services/excelLogger.js';
 import * as conversationStore from '../services/conversationStore.js';
 import { findBestMatchSemantic, getNearMatches } from '../services/semanticMatcher.js';
+import * as access from '../services/access.js';
 
 const router = Router();
 
@@ -11,6 +12,15 @@ router.post('/query', async (req, res) => {
   if (!text) return res.status(400).json({ error: 'text is required' });
 
   if (conversationReference && teamsUserId) conversationStore.store(teamsUserId, conversationReference);
+
+  // Allowlist gate — same as the command dispatcher uses
+  const role = access.getRole(teamsUserId, userEmail);
+  if (role === null) {
+    return res.json({
+      answered: false,
+      message: "You don't have access to this FAQ bot yet. Please ask your admin to add you to the allowed users list.",
+    });
+  }
 
   const { questions } = fileStore.read('faqs');
   const match = await findBestMatchSemantic(questions, text);

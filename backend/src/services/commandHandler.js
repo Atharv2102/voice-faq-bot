@@ -8,7 +8,11 @@ import * as conversationStore from './conversationStore.js';
 import { parseIntent } from './intent.js';
 import { parseIntentNLP } from './nlpIntent.js';
 import { findBestMatch, findTopMatches } from './matcher.js';
+import * as access from './access.js';
 import axios from 'axios';
+
+// How recent must a change be (hours) to be revertable. Default 7 days.
+const REVERT_WINDOW_HOURS = Number(process.env.REVERT_WINDOW_HOURS || 168);
 
 // ---------- helpers ----------
 
@@ -185,8 +189,11 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
     const nlp = await parseIntentNLP(text);
     if (nlp.action) intent = nlp;
   }
-  const admin = getAdmin(teamsUserId);
-  const adminOnly = ['add','update','delete','disable','enable','list','count','audit_recent','audit_by_actor','audit_by_time','audit_by_topic','audit_by_faq','revert','suggestions_pending','suggestions_by_submitter','suggestion_approve','suggestion_reject'];
+  const admin = getAdmin(teamsUserId) || access.getAdminEntry(teamsUserId, userEmail);
+  const role = access.getRole(teamsUserId, userEmail);
+  const adminOnly = ['add','update','delete','disable','enable','list','count','audit_recent','audit_by_actor','audit_by_time','audit_by_topic','audit_by_faq','revert','revert_faq','suggestions_pending','suggestions_by_submitter','suggestion_approve','suggestion_reject','show_query_log','show_unanswered'];
+  const ltAllowed = ['suggest_update','suggest_add','suggest_report','my_suggestions','help','link_account'];
+  const userAllowed = ['help','link_account'];
 
   // Handle confirm/cancel before all else
   if (intent.action === 'confirm' || intent.action === 'cancel' || intent.action === 'pick') {
@@ -221,11 +228,36 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
     }
   }
 
-  // Admin-only gate
+  // Access control — anyone not on an allowlist is rejected entirely.
+  if (role === null) {
+    return {
+      type: 'not_authorized',
+      message: "You don't have access to this FAQ bot yet. Please ask your admin to add you to the allowed users list.",
+    };
+  }
+
+  // LT can suggest + my_suggestions + help; can't do admin actions.
+  if (role === 'lt' && adminOnly.includes(intent.action)) {
+    return {
+      type: 'not_admin',
+      message: "Only admins can do that. As an LT member you can suggest a change or report a wrong answer — say `help` to see how.",
+    };
+  }
+
+  // Regular user — can only ask questions (handled via not_a_command fallback)
+  // and use meta commands (help / link).
+  if (role === 'user' && !userAllowed.includes(intent.action)) {
+    return {
+      type: 'not_admin',
+      message: "You can ask any question, but only admins or LT members can manage FAQs. Say `help` for what you can do.",
+    };
+  }
+
+  // Admin-only gate (now redundant with role check but kept as a safety net)
   if (adminOnly.includes(intent.action) && !admin) {
     return {
       type: 'not_admin',
-      message: "Only admins can do that. If you'd like to suggest a change, say:\n\"suggest a change to <topic>: <new answer>\"\nor \"report wrong answer for <topic>\"",
+      message: "Only admins can do that.",
     };
   }
 
@@ -234,7 +266,8 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
 
   // --- help ---
   if (intent.action === 'help') {
-    const isAdm = !!admin;
+    const isAdm = role === 'admin';
+    const isLt  = role === 'lt';
     const lines = [
       '👋 **Hi! I\'m the FAQ Bot.** Here\'s what I can do:',
       '',
@@ -271,6 +304,22 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
       '   `link 123456`',
       'This grants you admin powers in Teams too.',
     ];
+    if (!isAdm && !isLt) {
+      // Regular user — strip the suggest section
+      lines.length = 0;
+      lines.push(
+        '👋 **Hi! I\'m the FAQ Bot.**',
+        '',
+        '🔎 **Ask me anything** — just type or say your question.',
+        '   _Examples:_',
+        '   • `what are the office hours?`',
+        '   • `wifi password`',
+        '   • `how do I claim travel expenses`',
+        '',
+        '💡 If something looks wrong, please flag it to your admin so they can fix it.',
+      );
+    }
+
     if (isAdm) lines.push(
       '',
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
@@ -290,13 +339,15 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
       '   `approve suggestion S-001`   /   `reject suggestion S-001`',
       '',
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-      '📜 **Audit history** _(admin only)_',
+      '📜 **Audit & logs** _(admin only)_',
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
       '   `show recent changes`',
       '   `show changes today` / `show changes this week`',
       '   `show changes by <name>`',
       '   `who edited <topic>`',
-      '   `revert last change`',
+      '   `show recent queries` / `show unanswered queries`',
+      '   `revert last change`  (only within last ' + REVERT_WINDOW_HOURS + 'h)',
+      '   `revert the answer for <topic>`  (per-FAQ rollback)',
     );
     lines.push(
       '',
@@ -363,13 +414,55 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
       return { type: 'result', formatted_message: "Nothing to revert (no revertible change found in audit log)." };
     }
     const last = rows[0];
+    const hoursAgo = (Date.now() - new Date(last.timestamp).getTime()) / 3600000;
+    if (hoursAgo > REVERT_WINDOW_HOURS) {
+      return { type: 'result', formatted_message: `That change was made ${Math.round(hoursAgo)}h ago. Reverts are only allowed within the last ${REVERT_WINDOW_HOURS}h to prevent accidental rollbacks of long-standing content.` };
+    }
     const faqIdx = faqs.findIndex(f => f.id === last.faq_id);
     if (faqIdx === -1) return { type: 'result', formatted_message: `FAQ ${last.faq_id} no longer exists, cannot revert.` };
     pending.set(teamsUserId, 'revert', { faqId: last.faq_id, answer: last.before_answer, actor });
     return {
       type: 'needs_confirmation',
-      confirmation_prompt: `I'll revert "${last.question_snippet}" back to:\n"${last.before_answer}"\nSay yes to confirm or cancel to abort.`,
+      confirmation_prompt: `I'll revert "${last.question_snippet}" back to:\n"${last.before_answer}"\n_(change made ${Math.round(hoursAgo)}h ago)_\nSay yes to confirm or cancel to abort.`,
     };
+  }
+
+  // --- revert a specific FAQ (within REVERT_WINDOW_HOURS) ---
+  if (intent.action === 'revert_faq') {
+    const match = findBestMatch(faqs, intent.target);
+    if (!match) return { type: 'not_found', message: `Couldn't find a FAQ matching "${intent.target}".` };
+    const rows = await excelLogger.readAuditLog({ faqId: match.faq.id, limit: 5 });
+    const last = rows.find(r => r.before_answer && r.action !== 'delete');
+    if (!last) return { type: 'result', formatted_message: `No revertible change found for "${match.faq.question}".` };
+    const hoursAgo = (Date.now() - new Date(last.timestamp).getTime()) / 3600000;
+    if (hoursAgo > REVERT_WINDOW_HOURS) {
+      return { type: 'result', formatted_message: `Last change to "${match.faq.question}" was ${Math.round(hoursAgo)}h ago — outside the ${REVERT_WINDOW_HOURS}h revert window.` };
+    }
+    pending.set(teamsUserId, 'revert', { faqId: match.faq.id, answer: last.before_answer, actor });
+    return {
+      type: 'needs_confirmation',
+      confirmation_prompt: `I'll revert "${match.faq.question}" back to:\n"${last.before_answer}"\n_(change made ${Math.round(hoursAgo)}h ago)_\nSay yes to confirm or cancel to abort.`,
+    };
+  }
+
+  // --- query log: what users have been asking ---
+  if (intent.action === 'show_query_log') {
+    const rows = await excelLogger.readQueryLog({ limit: 15 });
+    if (!rows.length) return { type: 'result', formatted_message: 'No queries logged yet.' };
+    const lines = rows.map(r => {
+      const status = r.answered ? '✓' : '✗';
+      const who = r.user_name || r.user_email || 'unknown';
+      return `${status} _${fmtDate(r.timestamp)}_  **${who}**  — "${r.query}"`;
+    });
+    return { type: 'result', formatted_message: `**Recent queries (last ${rows.length}):**\n${lines.join('\n')}` };
+  }
+
+  if (intent.action === 'show_unanswered') {
+    const all = await excelLogger.readQueryLog({ limit: 200 });
+    const rows = all.filter(r => !r.answered).slice(0, 15);
+    if (!rows.length) return { type: 'result', formatted_message: 'No unanswered queries — your knowledge base is covering everything users have asked!' };
+    const lines = rows.map(r => `• "${r.query}"  _(${fmtDate(r.timestamp)} — ${r.user_name || 'unknown'})_`);
+    return { type: 'result', formatted_message: `**Unanswered queries (${rows.length}):**\n${lines.join('\n')}` };
   }
 
   // --- suggestions_pending (admin) ---

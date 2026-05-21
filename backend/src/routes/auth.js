@@ -38,6 +38,7 @@ router.post('/register', async (req, res) => {
     teams_user_id: '',                // user can link their Teams ID later
     email: email.toLowerCase(),
     name,
+    role: 'lt',                       // new self-registrations default to LT; admins promote via panel
     web_password_hash: hash,
     notifications_enabled: true,
     active: true,

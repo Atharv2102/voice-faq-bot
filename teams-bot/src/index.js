@@ -52,10 +52,23 @@ async function handleMessage(context) {
   const activity = context.activity;
   const teamsUserId = activity.from?.aadObjectId || activity.from?.id;
   const userName = activity.from?.name ?? '';
-  const userEmail = activity.from?.email ?? '';
   const conversationReference = context.ref;
 
-  if (process.env.DEBUG_USER_ID) console.log(`>>> teamsUserId: ${teamsUserId}  name: ${userName}`);
+  // Look up the user's email from Teams (uses the bot service token, no extra
+  // Graph permission required). Falls back to whatever's on the activity if the
+  // call fails (e.g. when running in the local devtools where this API isn't
+  // wired up).
+  let userEmail = activity.from?.email ?? activity.from?.properties?.email ?? '';
+  if (!userEmail && context.api?.conversations?.members && activity.conversation?.id && activity.from?.id) {
+    try {
+      const member = await context.api.conversations.members.getById(activity.conversation.id, activity.from.id);
+      userEmail = member?.email || member?.userPrincipalName || '';
+    } catch (err) {
+      console.warn('[member-lookup] failed:', err.message);
+    }
+  }
+
+  if (process.env.DEBUG_USER_ID) console.log(`>>> teamsUserId: ${teamsUserId}  email: ${userEmail}  name: ${userName}`);
 
   const audioAtt = (activity.attachments ?? []).find(a => AUDIO_TYPES.includes(a.contentType));
 

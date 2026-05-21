@@ -13,7 +13,7 @@ function exfp(name) { return join(DATA, `${name}.example.json`); }
 
 /** On startup copy .example files into real files if missing */
 function bootstrap() {
-  for (const name of ['faqs', 'admins', 'suggestions', 'conversation-refs']) {
+  for (const name of ['faqs', 'admins', 'suggestions', 'conversation-refs', 'users']) {
     if (!existsSync(fp(name)) && existsSync(exfp(name))) {
       copyFileSync(exfp(name), fp(name));
     }

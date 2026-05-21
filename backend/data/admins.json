@@ -4,6 +4,7 @@
       "teams_user_id": "e3db435f-2da9-45e0-9b4e-23508cd70514",
       "email": "atharv.jain@inmobi.com",
       "name": "Atharv Jain",
+      "role": "admin",
       "web_password_hash": "$2b$10$9VccEGJdLr9bMiIXDLX/7.vjYwTRDe6s9pd1f4o9MW4Qpbaoan7z.",
       "notifications_enabled": true,
       "active": true
