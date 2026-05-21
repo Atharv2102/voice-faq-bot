@@ -9,7 +9,7 @@ const NAV = [
   { to: '/import',      label: 'Import' },
   { to: '/audit',       label: 'Audit Log' },
   { to: '/queries',     label: 'Query Log' },
-  { to: '/users',       label: 'Users & Roles' },
+  { to: '/users',       label: 'Access' },
   { to: '/profile',     label: 'Profile' },
 ];
 
