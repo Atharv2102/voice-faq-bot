@@ -110,6 +110,12 @@ export function parseIntent(text) {
   m = t.match(/^help$/i);
   if (m) return { action: 'help' };
 
+  // Greetings — short, no question mark, no other content.
+  // Covers: hi, hii, hiya, hey, hello, helo, yo, hola, namaste, salaam,
+  // good morning / afternoon / evening (alone or with a name).
+  m = t.match(/^(hi+|hii+|hiya|hey+|hello+|helo+|yo|hola|namaste|salaam|good\s+(morning|afternoon|evening|day)|greetings|howdy|sup|wassup|what'?s\s+up|start|menu)[\s!.,]*$/i);
+  if (m) return { action: 'greet' };
+
   m = t.match(/^(yes|confirm|confirmed|ok|okay|yeah|yep|sure)$/i);
   if (m) return { action: 'confirm' };
 

@@ -194,7 +194,7 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
   const role = access.getRole(teamsUserId, userEmail);
   const adminOnly = ['add','update','delete','disable','enable','list','count','audit_recent','audit_by_actor','audit_by_time','audit_by_topic','audit_by_faq','revert','revert_faq','suggestions_pending','suggestions_by_submitter','suggestion_approve','suggestion_reject','show_query_log','show_unanswered'];
   const ltAllowed = ['suggest_update','suggest_add','suggest_report','my_suggestions','help','link_account'];
-  const userAllowed = ['help','link_account'];
+  const userAllowed = ['help','link_account','greet'];
 
   // Handle confirm/cancel before all else
   if (intent.action === 'confirm' || intent.action === 'cancel' || intent.action === 'pick') {
@@ -264,6 +264,46 @@ export async function handle({ text, teamsUserId, userEmail, userName, conversat
 
   const faqs = getFaqs();
   const actor = admin ? { email: admin.email, name: admin.name } : { email: userEmail, name: userName };
+
+  // --- greeting → role-appropriate welcome ---
+  if (intent.action === 'greet') {
+    const who = userName ? `, ${userName.split(' ')[0]}` : '';
+    let intro;
+    if (role === 'admin') {
+      intro =
+        `👋 Hi${who}! I'm the **FAQ Bot**.\n\n` +
+        `You're signed in as an **Admin** — here's what you can do:\n\n` +
+        `🔎 **Ask** — type any question to get an answer\n` +
+        `✏️ **Manage FAQs** — \`add question X answer Y\`, \`update answer for X to Y\`, \`delete question about X\`\n` +
+        `📥 **Review suggestions** — \`show pending suggestions\`, \`approve suggestion S-001\`\n` +
+        `📜 **Logs & history** — \`show recent changes\`, \`show recent queries\`, \`who edited <topic>\`\n` +
+        `↩️ **Undo** — \`revert last change\`, \`revert the answer for <topic>\`\n\n` +
+        `Say \`help\` any time for the full command list.`;
+    } else if (role === 'lt') {
+      intro =
+        `👋 Hi${who}! I'm the **FAQ Bot**.\n\n` +
+        `You're signed in as an **LT member** — here's what you can do:\n\n` +
+        `🔎 **Ask** — type any question to get an answer\n` +
+        `✏️ **Suggest a change** — \`suggest a change to <topic>: <new answer>\`\n` +
+        `➕ **Suggest a new FAQ** — \`suggest adding <question> with answer <answer>\`\n` +
+        `🚩 **Flag a wrong answer** — \`report wrong answer for <topic>\`\n` +
+        `📋 **See your submissions** — \`my suggestions\`\n\n` +
+        `Say \`help\` any time for the full command list.`;
+    } else if (role === 'user') {
+      intro =
+        `👋 Hi${who}! I'm the **FAQ Bot**.\n\n` +
+        `Just **ask me anything** — by text or voice — and I'll find the answer.\n\n` +
+        `_Examples:_\n` +
+        `• \`what are the office hours?\`\n` +
+        `• \`wifi password\`\n` +
+        `• \`how do I claim travel expenses\`\n\n` +
+        `If something looks wrong, let your admin know so they can fix it.`;
+    } else {
+      // Shouldn't reach here — access gate would have already rejected null role
+      intro = '👋 Hi! Ask your admin to add you to the FAQ Bot access list.';
+    }
+    return { type: 'result', formatted_message: intro };
+  }
 
   // --- help ---
   if (intent.action === 'help') {
