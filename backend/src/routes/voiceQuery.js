@@ -34,6 +34,8 @@ async function transcribeWithAzure(buffer, contentType) {
   const url = `https://${region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1`
             + `?language=${locale}&format=simple&profanity=raw`;
 
+  console.log(`[STT] key set=${!!key} region=${region} locale=${locale} contentType=${contentType} → azureCT=${azureCT} bufferBytes=${buffer.length}`);
+
   const { data } = await axios.post(url, buffer, {
     headers: {
       'Ocp-Apim-Subscription-Key': key,
@@ -42,6 +44,8 @@ async function transcribeWithAzure(buffer, contentType) {
     },
     timeout: 30_000,
   });
+
+  console.log(`[STT] Azure response:`, JSON.stringify(data));
 
   if (data.RecognitionStatus === 'NoMatch' || data.RecognitionStatus === 'InitialSilenceTimeout') return '';
   if (data.RecognitionStatus !== 'Success') throw new Error(`Azure STT status: ${data.RecognitionStatus}`);
