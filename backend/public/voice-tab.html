@@ -207,16 +207,28 @@
     async function startRecording() {
       hideAll();
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Force 16kHz mono — Azure STT works best at this sample rate
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            sampleRate: 16000,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          }
+        });
       } catch {
         showError("Microphone access was denied. Please allow mic access in your browser/Teams settings.");
         return;
       }
 
       audioChunks = [];
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/ogg;codecs=opus';
+      // Prefer ogg/opus — more reliable with Azure STT than webm
+      const mimeType = MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+        ? 'audio/ogg;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm';
 
       mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };

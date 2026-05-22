@@ -23,7 +23,7 @@ const MIME_TO_AZURE_CT = {
 async function transcribeWithAzure(buffer, contentType) {
   const key    = process.env.AZURE_SPEECH_KEY;
   const region = process.env.AZURE_SPEECH_REGION;
-  const locale = process.env.AZURE_SPEECH_LOCALE || 'en-IN';
+  const locale = process.env.AZURE_SPEECH_LOCALE || 'en-US';
 
   if (!key || !region) throw new Error('AZURE_SPEECH_KEY or AZURE_SPEECH_REGION is not configured on the backend.');
 
