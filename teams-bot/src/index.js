@@ -92,8 +92,8 @@ async function handleMessage(context) {
 
   // ── Branch 1: incoming AUDIO → transcribe, ask user to confirm ─────────────
   if (audioAtt) {
-    if (!process.env.OPENAI_API_KEY) {
-      await context.send("I received your voice message but voice transcription isn't configured yet (OPENAI_API_KEY missing). Please type your message.");
+    if (!process.env.AZURE_SPEECH_KEY || !process.env.AZURE_SPEECH_REGION) {
+      await context.send("I received your voice message but voice transcription isn't configured yet (AZURE_SPEECH_KEY / AZURE_SPEECH_REGION missing). Please type your message.");
       return;
     }
     let transcript;

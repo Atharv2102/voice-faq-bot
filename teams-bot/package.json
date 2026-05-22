@@ -13,8 +13,7 @@
     "@microsoft/teams.dev": "*",
     "archiver": "^7.0.1",
     "axios": "^1.6.7",
-    "dotenv": "^16.4.1",
-    "openai": "^4.28.0"
+    "dotenv": "^16.4.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
