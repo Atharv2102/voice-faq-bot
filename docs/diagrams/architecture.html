@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Technical Architecture</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    h2 {
+      color: #1a1a1a;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .canvas {
+      width: 900px;
+      height: 650px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #fafafa;
+    }
+    .canvas svg {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h2>Technical Architecture</h2>
+  <div class="canvas">
+    <div class="mermaid">
+flowchart TD
+    subgraph Clients[Clients]
+        TC[Microsoft Teams]
+        AP[Admin Panel\nReact SPA]
+    end
+    subgraph AzureBot[Azure Bot Service]
+        ABS[Bot Channel\nClient credentials]
+    end
+    subgraph TeamsBot[Teams Bot — Node.js on Render]
+        TB[Teams AI v2 SDK\nVoice STT · Email lookup]
+    end
+    subgraph Backend[Backend — Express on Render]
+        IP[Intent Pipeline\nRegex → NLP → Fuse.js → Claude]
+        SVC[Services\ncommandHandler · access · notifications]
+        DATA[(Data\nfaqs · admins · users\naudit-log · query-log)]
+    end
+    subgraph Ext[External APIs]
+        OAI[OpenAI Whisper]
+        ANT[Anthropic Claude Haiku]
+        MSG[Microsoft Graph Email]
+    end
+    TC <-->|Bot Framework| ABS
+    ABS <-->|/api/messages| TB
+    AP <-->|REST + JWT| Backend
+    TB <-->|HTTP| Backend
+    TB --> OAI
+    IP --> ANT
+    SVC --> MSG
+    IP --- DATA
+    SVC --- DATA
+    </div>
+  </div>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default', useMaxWidth: false });
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        const svg = document.querySelector('.canvas svg');
+        if (!svg) return;
+        const vb = svg.getAttribute('viewBox');
+        if (!vb) return;
+        const parts = vb.trim().split(/[\s,]+/).map(Number);
+        const vbW = parts[2], vbH = parts[3];
+        const scale = Math.min(860 / vbW, 610 / vbH);
+        svg.setAttribute('width',  Math.round(vbW * scale));
+        svg.setAttribute('height', Math.round(vbH * scale));
+      }, 900);
+    });
+  </script>
+</body>
+</html>

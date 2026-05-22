@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Journey</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    h2 {
+      color: #1a1a1a;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .canvas {
+      width: 900px;
+      height: 650px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #fafafa;
+    }
+    .canvas svg {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h2>Admin Journey</h2>
+  <div class="canvas">
+    <div class="mermaid">
+flowchart TD
+    A([Admin registers\non panel]) --> B[Log in to Admin Panel]
+    B --> C[Profile → Generate link code]
+    C --> D[Type 'link 123456' in Teams bot]
+    D --> E[Teams account linked]
+    E --> F{Choose channel}
+    F -->|Admin Panel| G[Manage FAQs\nUsers · Logs · Suggestions]
+    F -->|Teams Chat| H[Type commands\nadd / update / delete\napprove / reject / logs]
+    H --> I{Destructive action?}
+    I -->|Yes| J[Bot asks: Confirm?]
+    J -->|yes| K[Action executed\nAudit log updated]
+    I -->|No| K
+    G --> K
+    </div>
+  </div>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default', useMaxWidth: false });
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        const svg = document.querySelector('.canvas svg');
+        if (!svg) return;
+        const vb = svg.getAttribute('viewBox');
+        if (!vb) return;
+        const parts = vb.trim().split(/[\s,]+/).map(Number);
+        const vbW = parts[2], vbH = parts[3];
+        const scale = Math.min(860 / vbW, 610 / vbH);
+        svg.setAttribute('width',  Math.round(vbW * scale));
+        svg.setAttribute('height', Math.round(vbH * scale));
+      }, 900);
+    });
+  </script>
+</body>
+</html>

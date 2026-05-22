@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Data Flow</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    h2 {
+      color: #1a1a1a;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .canvas {
+      width: 900px;
+      height: 650px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #fafafa;
+    }
+    .canvas svg {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h2>Data Flow</h2>
+  <div class="canvas">
+    <div class="mermaid">
+flowchart TD
+    U([User / LT / Admin]) -->|asks question| BOT[FAQ Bot]
+    BOT -->|searches| KB[(FAQ Knowledge Base)]
+    KB -->|match + confidence| BOT
+    BOT -->|answer| U
+    BOT -->|logs query| QL[(Query Log)]
+
+    LT([LT Member]) -->|suggests change| BOT
+    BOT -->|saves| SJ[(Suggestions)]
+    BOT -->|email alert| EA[Admin Email]
+    BOT -->|Teams DM| AD[Admin in Teams]
+
+    ADMIN([Admin]) -->|approve / reject| BOT
+    BOT -->|updates FAQ| KB
+    BOT -->|logs change| AL[(Audit Log)]
+    BOT -->|notifies outcome| LT
+    </div>
+  </div>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default', useMaxWidth: false });
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        const svg = document.querySelector('.canvas svg');
+        if (!svg) return;
+        const vb = svg.getAttribute('viewBox');
+        if (!vb) return;
+        const parts = vb.trim().split(/[\s,]+/).map(Number);
+        const vbW = parts[2], vbH = parts[3];
+        const scale = Math.min(860 / vbW, 610 / vbH);
+        svg.setAttribute('width',  Math.round(vbW * scale));
+        svg.setAttribute('height', Math.round(vbH * scale));
+      }, 900);
+    });
+  </script>
+</body>
+</html>

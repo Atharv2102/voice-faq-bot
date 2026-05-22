@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>User Journey</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    h2 {
+      color: #1a1a1a;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .canvas {
+      width: 900px;
+      height: 650px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #fafafa;
+    }
+    .canvas svg {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h2>User Journey</h2>
+  <div class="canvas">
+    <div class="mermaid">
+flowchart TD
+    A([Admin adds user email]) --> B([User opens Teams Bot])
+    B --> C{First message?}
+    C -->|Yes| D[Bot verifies email\nAccess granted]
+    D --> E[Welcome message shown]
+    C -->|No| F{Voice or Text?}
+    E --> F
+    F -->|Voice| G[Whisper transcribes audio]
+    G --> H[Bot: Confirm? yes / no]
+    H -->|yes| I[Search FAQ knowledge base]
+    F -->|Text| I
+    I --> J{Match found?}
+    J -->|Yes ≥85%| K[Return answer + confidence %]
+    J -->|No| L[Show top 3 near-miss FAQs]
+    </div>
+  </div>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default', useMaxWidth: false });
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        const svg = document.querySelector('.canvas svg');
+        if (!svg) return;
+        const vb = svg.getAttribute('viewBox');
+        if (!vb) return;
+        const parts = vb.trim().split(/[\s,]+/).map(Number);
+        const vbW = parts[2], vbH = parts[3];
+        const scale = Math.min(860 / vbW, 610 / vbH);
+        svg.setAttribute('width',  Math.round(vbW * scale));
+        svg.setAttribute('height', Math.round(vbH * scale));
+      }, 900);
+    });
+  </script>
+</body>
+</html>

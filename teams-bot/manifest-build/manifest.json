@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
   "manifestVersion": "1.16",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "id": "bab0323f-9c89-4457-9271-7ebfe580a2ff",
   "packageName": "com.example.faqbot",
   "developer": {
@@ -58,6 +58,17 @@
       ]
     }
   ],
+  "staticTabs": [
+    {
+      "entityId": "voice-tab",
+      "name": "Voice FAQ",
+      "contentUrl": "https://voice-faq-bot-backend.onrender.com/voice-tab",
+      "websiteUrl": "https://voice-faq-bot-backend.onrender.com/voice-tab",
+      "scopes": [
+        "personal"
+      ]
+    }
+  ],
   "permissions": [
     "identity",
     "messageTeamMembers"
@@ -66,6 +77,7 @@
     "media"
   ],
   "validDomains": [
-    "voice-faq-bot-1.onrender.com"
+    "voice-faq-bot-1.onrender.com",
+    "voice-faq-bot-backend.onrender.com"
   ]
 }
