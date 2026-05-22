@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice FAQ</title>
+  <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 40px 20px;
+      color: #1a1a1a;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      color: #0F6E56;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 40px;
+    }
+
+    /* Mic button */
+    .mic-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 36px;
+    }
+
+    #micBtn {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      border: none;
+      background: #0F6E56;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(15,110,86,0.3);
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+      outline: none;
+    }
+
+    #micBtn:hover  { background: #0d5f49; transform: scale(1.04); }
+    #micBtn.recording {
+      background: #e53e3e;
+      box-shadow: 0 0 0 8px rgba(229,62,62,0.2);
+      animation: pulse 1.2s infinite;
+    }
+    #micBtn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 8px rgba(229,62,62,0.2); }
+      50%       { box-shadow: 0 0 0 16px rgba(229,62,62,0.08); }
+    }
+
+    #micBtn svg { width: 36px; height: 36px; fill: #fff; }
+
+    #status {
+      font-size: 13px;
+      color: #555;
+      height: 18px;
+      text-align: center;
+    }
+
+    /* Cards */
+    .card {
+      width: 100%;
+      max-width: 540px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 14px;
+    }
+
+    .card-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 8px;
+    }
+
+    .card-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #1a1a1a;
+      white-space: pre-wrap;
+    }
+
+    .card.answer { border-left: 3px solid #0F6E56; }
+    .card.transcript { border-left: 3px solid #888; }
+    .card.error { border-left: 3px solid #e53e3e; }
+    .card.error .card-text { color: #e53e3e; }
+
+    #confidence {
+      font-size: 11px;
+      color: #0F6E56;
+      font-weight: 600;
+      margin-top: 6px;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <h1>🎙️ Voice FAQ</h1>
+  <p class="subtitle">Tap the mic, ask your question, get an instant answer.</p>
+
+  <div class="mic-wrap">
+    <button id="micBtn" title="Hold to record">
+      <!-- mic icon -->
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-1 17.93V21H9v2h6v-2h-2v-2.07A8.001 8.001 0 0 0 20 11h-2a6 6 0 0 1-12 0H4a8.001 8.001 0 0 0 7 7.93z"/>
+      </svg>
+    </button>
+    <div id="status">Tap to ask a question</div>
+  </div>
+
+  <div id="transcriptCard" class="card transcript hidden">
+    <div class="card-label">I heard</div>
+    <div id="transcriptText" class="card-text"></div>
+  </div>
+
+  <div id="answerCard" class="card answer hidden">
+    <div class="card-label">Answer</div>
+    <div id="answerText" class="card-text"></div>
+    <div id="confidence"></div>
+  </div>
+
+  <div id="errorCard" class="card error hidden">
+    <div class="card-label">Error</div>
+    <div id="errorText" class="card-text"></div>
+  </div>
+
+  <script>
+    // ── Teams context ──────────────────────────────────────────────
+    let teamsUserId = '';
+    let userEmail   = '';
+    let userName    = '';
+
+    microsoftTeams.app.initialize().then(() => {
+      microsoftTeams.app.getContext().then(ctx => {
+        teamsUserId = ctx.user?.id          ?? '';
+        userEmail   = ctx.user?.loginHint   ?? '';  // UPN = email in most tenants
+        userName    = ctx.user?.displayName ?? '';
+      }).catch(() => {});
+    }).catch(() => {
+      // Running outside Teams (local browser test) — continue without context
+    });
+
+    // ── Elements ───────────────────────────────────────────────────
+    const micBtn         = document.getElementById('micBtn');
+    const statusEl       = document.getElementById('status');
+    const transcriptCard = document.getElementById('transcriptCard');
+    const transcriptText = document.getElementById('transcriptText');
+    const answerCard     = document.getElementById('answerCard');
+    const answerText     = document.getElementById('answerText');
+    const confidenceEl   = document.getElementById('confidence');
+    const errorCard      = document.getElementById('errorCard');
+    const errorText      = document.getElementById('errorText');
+
+    // ── State ──────────────────────────────────────────────────────
+    let mediaRecorder = null;
+    let audioChunks   = [];
+    let recording     = false;
+    let stream        = null;
+
+    function setStatus(msg) { statusEl.textContent = msg; }
+    function hideAll() {
+      [transcriptCard, answerCard, errorCard].forEach(c => c.classList.add('hidden'));
+    }
+    function showError(msg) {
+      hideAll();
+      errorText.textContent = msg;
+      errorCard.classList.remove('hidden');
+    }
+
+    // ── Mic button ─────────────────────────────────────────────────
+    micBtn.addEventListener('click', async () => {
+      if (recording) {
+        stopRecording();
+      } else {
+        await startRecording();
+      }
+    });
+
+    async function startRecording() {
+      hideAll();
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch {
+        showError("Microphone access was denied. Please allow mic access in your browser/Teams settings.");
+        return;
+      }
+
+      audioChunks = [];
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/ogg;codecs=opus';
+
+      mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+      mediaRecorder.onstop = handleRecordingDone;
+      mediaRecorder.start(250); // collect in 250ms chunks
+
+      recording = true;
+      micBtn.classList.add('recording');
+      setStatus('Recording… tap again to stop');
+    }
+
+    function stopRecording() {
+      if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+      mediaRecorder.stop();
+      stream.getTracks().forEach(t => t.stop());
+      recording = false;
+      micBtn.classList.remove('recording');
+      micBtn.disabled = true;
+      setStatus('Processing…');
+    }
+
+    async function handleRecordingDone() {
+      const mimeType  = mediaRecorder.mimeType;
+      const audioBlob = new Blob(audioChunks, { type: mimeType });
+
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.webm');
+      formData.append('contentType', mimeType);
+      formData.append('teamsUserId', teamsUserId);
+      formData.append('userEmail',   userEmail);
+      formData.append('userName',    userName);
+
+      try {
+        const res  = await fetch('/api/voice-query', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Server error');
+
+        // Show transcript
+        transcriptText.textContent = data.transcript || '(no transcript)';
+        transcriptCard.classList.remove('hidden');
+
+        // Show answer or no-match message
+        answerText.textContent = data.answered ? data.answer : data.message;
+        confidenceEl.textContent = data.answered
+          ? `${Math.round(data.confidence * 100)}% confidence · matched "${data.question}"`
+          : '';
+        answerCard.classList.remove('hidden');
+
+        setStatus('Tap to ask another question');
+      } catch (err) {
+        showError(err.message || 'Something went wrong. Please try again.');
+        setStatus('Tap to ask a question');
+      } finally {
+        micBtn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

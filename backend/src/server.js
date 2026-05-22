@@ -2,6 +2,9 @@ import 'dotenv/config';
 import express from 'express';
 import morgan from 'morgan';
 import cors from 'cors';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 import healthRouter from './routes/health.js';
 import queryRouter from './routes/query.js';
@@ -18,11 +21,16 @@ import botNotifyRouter from './routes/botNotify.js';
 import convRefRouter from './routes/convRef.js';
 import usersRouter from './routes/users.js';
 import accessRouter from './routes/access.js';
+import voiceQueryRouter from './routes/voiceQuery.js';
 
 const app = express();
 app.use(cors({ origin: process.env.ADMIN_PANEL_URL || true }));
 app.use(express.json());
 app.use(morgan('dev'));
+
+// Serve Teams Tab static files
+app.use(express.static(join(__dirname, '..', 'public')));
+app.get('/voice-tab', (_req, res) => res.sendFile(join(__dirname, '..', 'public', 'voice-tab.html')));
 
 // Public
 app.use('/api', healthRouter);
@@ -42,6 +50,9 @@ app.use('/api', auditLogRouter);
 app.use('/api', queryLogRouter);
 app.use('/api', usersRouter);
 app.use('/api', accessRouter);
+
+// Voice Tab
+app.use('/api', voiceQueryRouter);
 
 // Internal (secret-protected)
 app.use('/api', botNotifyRouter);
