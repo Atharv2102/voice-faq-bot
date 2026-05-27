@@ -35,15 +35,12 @@ router.post('/query', async (req, res) => {
   }).catch(console.error);
 
   if (!match) {
-    // Show the closest near-misses (below the confidence cutoff) so the user knows
-    // we *almost* matched something and can refine their question.
     const near = getNearMatches(questions, text, 3);
-    let msg = "Sorry, I couldn't find a confident answer to that question.";
+    const escalation = `Appreciate the question! This topic isn't covered in our knowledge base just yet, but that's exactly where utpala.viswanath@inmobi.com & shantanu.rawat@inmobi.com come in — they're your go-to experts on this. They're well-positioned to walk you through the details and provide any additional context you may need. Please contact them directly, and they'll ensure you get the most accurate information.`;
+    let msg = escalation;
     if (near.length) {
       const lines = near.map((r, i) => `  ${i + 1}. "${r.faq.question}"  _(${Math.round(r.score * 100)}% match)_`);
-      msg += `\n\nClosest matches in my knowledge base:\n${lines.join('\n')}\n\nIf one of those is what you meant, ask it that way. Otherwise you can suggest a new FAQ:\n\`suggest adding <question> with answer <answer>\``;
-    } else {
-      msg += `\n\nI couldn't find any related FAQs. You can suggest a new one:\n\`suggest adding <question> with answer <answer>\``;
+      msg += `\n\nYou might also be looking for one of these:\n${lines.join('\n')}`;
     }
     return res.json({ answered: false, message: msg, near_matches: near.map(r => ({ id: r.faq.id, question: r.faq.question, score: r.score })) });
   }

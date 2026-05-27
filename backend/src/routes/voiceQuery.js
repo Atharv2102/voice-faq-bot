@@ -90,10 +90,11 @@ router.post('/voice-query', upload.single('audio'), async (req, res) => {
     // ── 5. Respond ────────────────────────────────────────────────
     if (!match) {
       const near = getNearMatches(questions, transcript, 3);
-      let message = "Sorry, I couldn't find a confident answer to that question.";
+      const escalation = `Appreciate the question! This topic isn't covered in our knowledge base just yet, but that's exactly where utpala.viswanath@inmobi.com & shantanu.rawat@inmobi.com come in — they're your go-to experts on this. They're well-positioned to walk you through the details and provide any additional context you may need. Please contact them directly, and they'll ensure you get the most accurate information.`;
+      let message = escalation;
       if (near.length) {
         const lines = near.map((r, i) => `${i + 1}. "${r.faq.question}" (${Math.round(r.score * 100)}% match)`);
-        message += `\n\nClosest matches:\n${lines.join('\n')}`;
+        message += `\n\nYou might also be looking for one of these:\n${lines.join('\n')}`;
       }
       return res.json({ transcript, answered: false, message, near_matches: near.map(r => ({ question: r.faq.question, score: r.score })) });
     }
